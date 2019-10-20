@@ -1,0 +1,251 @@
+\documentclass{llncs}
+
+
+%\usepackage{graphicx}
+%
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\renewcommand{\labelitemi}{$\bullet$}
+\renewcommand{\labelitemii}{$\bullet$}
+\renewcommand{\labelitemiii}{$\bullet$}
+\renewcommand{\labelitemiv}{$\bullet$}
+\begin{document}
+
+
+\title{Abschlussbericht zur Projektgruppe Max-Flow-Algorithmen: Edmonds-Karp, Push-Relabel}
+
+\author{Florian Nelles, Moritz Rehbach}
+
+\institute{Institut für Informatik I, Universität Bonn}
+\maketitle
+\vspace{1cm}
+\section{Einleitung}
+Unsere Aufgabe im Projekt war es, ein Programm in Java zu schreiben, mit dem man Max-Flow-Instanzen erstellen, betrachten und schrittweise lösen kann. \\
+Wir hatten die Algorithmen Edmonds-Karp \cite{Roe1} und Push-Relabel \cite{KV} zu betrachten und zunächst in einem Kurzvortrag vozustellen. 
+Das Programm sollte das Visualisieren, sowie das Laden, Speichern und Bearbeiten von Graphen ermöglichen. Hauptzweck des Programms ist es, die Algorithmen durch schrittweise Durchführung anschaulich zu machen. Die Algorithmen sollten auch unabhängig von der Visualisierung benutzbar sein.
+
+\section{Problemstellung}\label{sec:Problemstellung}
+
+Das "Max-Flow-Problem" und seine Varianten treten in vielen Anwendungsfällen auf. Ein einfaches Beispiel ist die Frage, wie man möglichst viel von einem Gut über verschiedene Wege mit begrenzten Kapazitäten von A nach B transportiert.\\
+Formal beschreibt man ein Max-Flow-Problem durch ein \textit{Netzwerk} $N=(G,c,s,t)$, bestehend aus einem gerichteten Graphen $ G=(V,E) $ mit Kapazitätsfunktion $ c: E \rightarrow  \mathbb{R_+} $ sowie den zwei ausgezeichneten Knoten $s$, der Quelle, und $t$, der Senke. Ein \textit{s-t-Fluss} ist eine Zuordnung $ f: E \rightarrow  \mathbb{R_+} $, wobei gelten muss: 
+\begin{itemize}
+
+\item $\forall e \in E: f(e) \leq c(e)$
+\item $\forall v \in V \ensuremath{\backslash}\{s,t\} : ex_f(v):= \sum\limits_{e \in \delta^{-}(v)}f(e) - \sum\limits_{e \in \delta^{+}(v)} f(e) \hspace{0.5cm}= 0$
+\end{itemize}
+Der Wert eines Flusses bezeichnet dann den Überschuss $ex(t)$ in der Senke. Das Ziel ist es nun, einen maximalen Fluss in $N$ zu bestimmen.
+\pagebreak
+\section{Algorithmen}\label{sec:Algorithmen}
+
+Um den maximalen Fluss zu finden, benutzen wir das sogenannte \textit{Restnetzwerk}. \\
+Sei $N=(G,c,s,t)$ ein Flussnetzwerk und $f$ ein Fluss in $N$. Definiere\\ $rest_f(u,v) = \begin{cases}
+c(u,v) - f(u,v) & \text{, falls } (u,v)\in E \\
+f(v,u) & \text{, falls } (v,u) \in E \\
+0 & \text{, sonst}
+\end{cases} $
+\\
+Dann heißt $G_f = (V, E_f)$ mit $E_f = \{ (u,v) \in VxV | rest_f(u,v) > 0 \}$ das Restnetzwerk zu $f$ und $N$.
+Einen Weg $P$ von $s$ nach $t$ im Restnetzwerk nennen wir einen \textit{f-augmentierenden Pfad}. Man kann den Wert von $|f|$ erhöhen, indem man auf allen Kanten des Pfads den Fluss um $\delta := \min \limits_{e\in P} (c(e))$ erhöht.
+\\ \\
+\hypertarget{bedLink}
+Für einen maximalen Fluss müssen zwei Bedingungen erfüllt sein:
+\begin{enumerate}
+\item $\forall v \in V \backslash \{s,t\}: ex_f(v)=0 $
+\item Es gibt keinen f-augmentierenden Pfad
+\end{enumerate}
+Die erste Bedingung stellt sicher, dass $f$ ein gültiger Fluss ist, die zweite, dass der Wert maximal ist.\\ \textit{Edmonds-Karp} erfüllt die erste Bedingung in allen Zwischenschritten und arbeitet auf die Erfüllung der zweiten Bedingung hin. \textit{Push-Relabel} erfüllt umgekehrt stets die zweite Bedingung und nähert sich der Erfüllung der ersten Bedingung.
+
+\subsection{Edmonds-Karp}
+Eine naheliegender Ansatz zum Lösen des Max-Flow-Problems ist das wiederholte Erhöhen entlang f-augmentierender Pfade, solange ein solcher existiert. Im Edmonds-Karp-Algorithmus wird diese Idee realisiert, mit der zusätzlichen Bedingung, dass immer ein augmentierender Pfad minimaler Länge ausgewählt wird. Für das Laufzeitverhalten ist diese Wahl günstiger als die eines beliebigen Pfades von $s$ nach $t$ im Restnetzwerk.
+\subsubsection{Ablauf des Algorithmus: }
+Zunächst initialisieren wir alle Flusswerte mit 0.\\
+Dann wiederholen wir folgende Schritte:\\
+\begin{enumerate}
+\item Erzeuge das Restnetzwerk 
+\item Suche darin einen kürzesten Pfad P von $s$ nach $t$ mittels Breitensuche
+\begin{itemize}
+\item Wenn keiner existiert, ist der Fluss maximal
+\end{itemize}
+\item Bestimme $\delta := \min \limits_{e\in P}(c(e))$ 
+\item \hypertarget{augLink}{Augmentierung} der Flusswerte entlang P: \\ 
+$f(u,v) = \begin{cases}
+f(u,v) + \delta & \text{, falls } (u,v)\in E\text{ und }(u,v)\in P\\
+f(u,v) - \delta & \text{, falls } (u,v) \in E\text{ und }(v,u)\in P\\
+f(u,v) & \text{, sonst}
+\end{cases} $\\
+\end{enumerate}
+
+\subsection{Push-Relabel}
+
+Bei \textit{Edmonds-Karp} entsteht in jedem Schritt ein Fluss, der die erste der oben genannten \hyperlink{bedLink}{Bedingungen} erfüllt. Bei \textit{Push-Relabel} gibt es dagegen nie einen Pfad von $s$ nach $t$ im Restnetzwerk, dafür ist der Fluss i.A. nicht gültig. \\
+Die Grundidee ist, zunächst alle von s ausgehenden Kanten zu fluten, man setzt also den Flusswert gleich der Kantenkapazität. \\
+Anschließend ist das Ziel, den so entstanden Überschuss $ex_f(v)$ in den erreichten Knoten abzutragen, bis am Schluss gilt: $\forall v \in V\backslash\{s, t\}: ex_f(v)=0$. \\
+Alle Knoten $v \in V\backslash\{s, t\}$ mit Überschuss $ex_f(v)>0$ heißen \textit{aktive Knoten}.\\ \\
+Zur Hilfe nehmen wir eine \textit{Höhenfunktion} $\psi : V \rightarrow \mathbb{N}$. \\
+Gilt für eine Kante $(u,v)\in E_{rest}$: $\psi(u)=\psi(v)+1$, so bezeichnen wir sie als \textit{erlaubte Kante}. Das Ändern des Flusses an einer Kante nennen wir $Push$. Gepusht wird nur über erlaubte Kanten im Restnetzwerk. \\ 
+Wenn es keine erlaubte Kante von einem aktiven Knoten aus gibt, wird die Operation \textit{Relabel} durchgeführt, d.h. das Ändern der Höhe. Hier wird der Wert $\psi(v)$ des aktiven Knotens $v$ um den minimal nötigen Wert erhöht, damit eine erlaubte Kante entsteht. 
+
+\subsubsection{Ablauf des Algorithmus: }
+Zu Beginn setzen wir den Fluss an allen Kanten auf 0, die Höhe $\psi(s)=|V|$ und $\psi(v)=0$ für alle anderen Knoten $v$.
+Dann wiederholen wir folgende Schritte, solange noch ein aktiver Knoten existiert:
+
+\begin{itemize}
+\item Wähle einen aktiven Knoten $v$
+\begin{itemize}
+\item Erlaubte Kante $(v,w)$ existiert $\rightarrow$ PUSH((v,w))
+\item Keine erlaubte Kante existiert $\rightarrow$ RELABEL(v)
+\end{itemize}
+\end{itemize}
+
+\section{Implementierung}\label{Implementierung}
+\subsection{Datenstrukturen}
+Wir verwenden zur Beschreibung von Netzwerk und Fluss folgende Klassen:
+\begin{itemize}
+
+\item \textbf{Flow.java}
+
+Enthält ein Netzwerk $N=(G,c,s,t)$ und darauf definierte Flusswerte $f:E \rightarrow \mathbb{R_+}$. Die Flusswerte sind in Form einer Adjazenzmatrix gespeichert, wie in der Klasse \texttt{Graph}. Der Fluss muss nicht gültig sein. Das zugehörige Restnetzwerk, der Flusswert und andere Eigenschaften können zurückgegeben werden. Auch Methoden zum Ändern von Flusswerten stehen zur Verfügung.
+
+\begin{itemize}
+\item  \textbf{Graph.java}
+
+Definiert einen Graphen $G=(V,E)$. Bei uns sind die Kapazitäten (Double) Teil der Kanten selbst. Die Kanten sind in Form einer Adjazenzmatrix gespeichert. Beim Hinzufügen eines Knotens mit Label "s" oder "t" wird die entsprechende ID markiert. \\
+Die Adjazenzmatrix wird in der HashMap \texttt{AdjacencyMap} gespeichert, in der Form \texttt{Map$\langle$u, Map$\langle$v, Edge$\rangle\rangle$}, wobei \textit{u} und \textit{v} Knoten-IDs sind. Die Implementierung als HashMap (statt Array o.ä.) lag nahe, so wird nicht immer eine voll besetzte Matrix gespeichert wird. Allerdings war zu beachten, dass Modifikationen an der HashMap nicht in Schleifen erfolgen können, die über alle Elemente iterieren. Die Knoten sind in der HashMap \texttt{VertexList} gespeichert.
+
+\begin{itemize}
+\item  \textbf{Vertex.java}
+
+Ein Knoten erhält eine eindeutige ID (Integer) und ein Label (String). Zum Referenzieren von Knoten wird immer deren ID benutzt.
+
+\item  \textbf{Edge.java}
+
+Eine Kante ist definiert durch Startknoten (ID, Integer), Endknoten (ID, Integer) und Kapazität. 
+
+\end{itemize}
+\end{itemize}
+\item  \textbf{Path.java}
+
+Eine verkettete Liste von Kanten.
+\item  \textbf{PathInt.java}
+
+Eine verkettete Liste von Integer-Tupeln (u, v).
+\end{itemize}
+
+\subsection{Interface "Algo"}
+
+Die beiden Algorithmen implementieren beide das Interface \texttt{Algo.java}. Es erweitert das generische Interface \texttt{Iterable$\langle$T$\rangle$} für den Typ \texttt{Flow} und legt einige Methoden fest, die in beiden Algorithmen mit identischer Signatur implementiert sind:
+
+\begin{itemize}
+\item \textbf{Flow next()} \\
+Führt einen Schritt im Algorithmus durch und gibt entsprechendes \texttt{Flow}-Objekt (s.o.) zurück.
+
+\item \textbf{boolean hasNext()}\\
+Gibt zurück, ob ein weiterer Schritt durchgeführt werden kann \\ ($false \rightarrow$ Fluss ist maximal).
+
+\item \textbf{int getStepCount()}\\
+Gib zurück, wieviele Schritte bisher durchgeführt wurden.
+
+\item \textbf{void reset()}\\
+Setzt den Algorithmus und alle Datenstrukturen zurück.
+
+\item \textbf{double getFlowValue()}\\
+Gibt die Summe aller Flusswerte an Kanten nach t zurück. Dabei spielt erstmal keine Rolle, ob der Fluss gültig ist.
+\end{itemize}
+\subsection{Edmonds-Karp}
+
+Auf einem Flussnetzwerk (Typ \texttt{Graph}) wird zunächst ein \texttt{Flow}-Objekt erzeugt, wobei alle Kanten mit Fluss 0 initialisiert werden.
+Dann werden bis zum Terminieren (siehe \texttt{hasNext()}) folgende Schritte beim Aufruf von \texttt{next()} wiederholt:
+
+\begin{itemize}
+\item \textbf{Erzeugung des Restnetzwerks}\\
+Aufruf von \texttt{Flow.getResidualNetwork()}.
+\item \textbf{Suche eines kürzesten Pfades P von $s$ nach $t$}\\
+Aufruf von \texttt{EdmondsKarp.augmentingPath()}: 
+\begin{itemize} 
+\item Aufruf von \texttt{GraphSearch.BFS(Graph, startNode, goalNode)} (Breitensuche)
+\item Setzen der Gewichte auf $\delta := \min \limits_{e\in P}(c(e))$ 
+\end{itemize}
+\item \textbf{Augmentierung der Flusswerte entlang P}\\
+Wie im Kapitel \hyperlink{augLink}{Algorithmen} beschrieben\\
+\end{itemize}
+Der Pfad wird in Form eines \texttt{Path}-Objekts verwaltet. Zur Reduzierung unnötigen Speicherbedarfs wird intern ein \texttt{PathInt}-Objekt verwendet, das nur noch die IDs von Start- und Endknoten jeder Kante enthält. 
+
+\subsection{Push-Relabel}
+
+Der Algorithmus benötigt einige Datenstrukturen zur Verwaltung von Höhe, Überschuss und aktiven Knoten. Die Höhen und Überschüsse der Knoten werden jeweils in einer HashMap gespeichert (\texttt{vertexHeight}, \texttt{vertexExcess}), die aktiven Knoten auf dem Stack \texttt{vertexActive}. Zusätzlich verwendet der Algorithmus, statt in jedem Schritt das komplette Restnetzwerk zu erzeugen, eine weitere Datenstruktur \texttt{reverseEdge}.
+Darin wird zu jedem Knoten $v$ die Menge der Knoten mit einer Kante nach $v$ gespeichert. 
+Die Methode \texttt{reset()} initialisiert Flusswerte und die eben beschriebenen Datenstrukturen. \\
+Dann werden bis zum Terminieren (siehe \texttt{hasNext()}) folgende Schritte beim Aufruf von \texttt{next()} wiederholt:
+
+\begin{itemize}
+\item \textbf{Erster Schritt} \\
+Falls \texttt{getStepCount()}=0, wird das Netzwerk durch Aufruf von 
+\texttt{firstStep()} geflutet.
+\item \textbf{Wahl eines aktiven Knotens} \\
+ID $v$ wird vom Stack \texttt{vertexActive} genommen. 
+\item \textbf{Suche nach erlaubter Kante} \\
+Die Hilfsfunktion \texttt{validEdge(v)} findet zu einem aktiven Knoten $v$ einen Nachbarn $w$, so dass die Kante $(v,w)$ eine erlaubte Kante ist. Sie gibt dann die ID von $w$ sowie die Restkapazität $r$ der Kante $(v,w)$ zurück, oder $(-1,-1)$, wenn es keine erlaubte Kante gibt.
+\item \textbf{PUSH:} Wenn eine erlaubte Kante existiert, ändern wir den Fluss um 
+$\delta := \min (r, ex_f(v))$. 
+Die Methode \texttt{PushRelabel.push(u,v,$\delta$)} prüft, ob eine Kante $(v,w)$ im ursprünglichen Graph vorhanden und deren Restkapazität $\geq \delta$ ist. Wenn ja, wird der Fluss auf $(v,w)$ um $\delta$ erhöht, sonst auf $(w,v)$ um $\delta$ gesenkt. Danach werden \texttt{vertexActive} und \texttt{vertexExcess} entsprechend aktualisiert. 
+\item \textbf{RELABEL:} 
+Wenn keine erlaubte Kante gefunden wird, muss die Höhe des aktiven Knotens angepasst werden. Dies erledigt die Funkion \texttt{relabel(v)}.
+
+\end{itemize}
+
+\section{GUI}
+
+\subsection{Bedienung}
+
+Der Algorithmus kann schrittweise nachvollzogen oder direkt komplett durchgeführt werden. Man kann mit Hilfe der Bedienelemente Graphen erzeugen und bearbeiten sowie in Dateien laden und speichern. Die Dateien enthalten dann das Flussnetzwerk, die Positionen der Knoten und den Zustand des Algorihmus. Außerdem gibt es einen Generator für Beispielgraphen, einstellbar sind hier Größe, maximale Kantenkapazität und die Anzahl direkt mit t verbundener Knoten. 
+
+\subsubsection{Edmonds-Karp}
+In der Ansicht für den Edmonds-Karp-Algorithmus wird das Fenster zweigeteilt, links wird immer das unveränderte Netzwerk anzeigt, rechts die gesetzten Flusswerte (ohne die ursprünglichen Kanten) oder das Restnetzwerk. Der letzte augmentierende Pfad wird in der "Fluss"-Ansicht hell hervorgehoben.
+
+\subsubsection{Push-Relabel}
+Der Push-Relabel-Algorithmus verwendet rote Farbe für die Darstellung der aktiven Knoten, der gerade ausgewählte wird pink gezeichnet. In den Knoten, (oder beim Klick darauf unten rechts im Fenster), werden Überschuss (ex) und Höhe (h) angezeigt.
+
+
+
+\subsection{Visualisierung der Graphen}
+
+Zum Zeichnen der Graphen haben wir die Bibliothek \textit{JGraphX} \cite{JGraphX} verwendet. Die Klasse \texttt{GraphPanel.java} erweitert das normale \texttt{JPanel} und enthält jeweils die nötigen Objekte vom Typ \texttt{mxGraphComponent, mxGraph, mxGraphLayout}. Dort werden die Grafikobjekte gezeichnet und gespeichert, um später Interaktionen mit dem Graph zu ermöglichen. Gespeichert werden die erzeugten Objekte in den HashMaps \texttt{graphVertices} und \texttt{graphEdges}. Diese sind analog zu \texttt{VertexList} und \texttt{AdjacencyMap} in der Klasse \texttt{Graph.java} aufgebaut, enthalten aber hier Objekte vom Typ \texttt{mxCell}. \\
+Beim Klick auf den Hilfe-Button steht auch eine Textausgabe der Graphen zur Verfügung.
+
+Wichtige Methoden sind: 
+
+\begin{itemize}
+\item \textbf{drawGraph(Graph g)} \\
+Linke Ansicht Edmonds-Karp
+\item \textbf{drawRightEK\_Flow(EdmondsKarp a)} \\
+Rechte Ansicht Edmonds-Karp: Fluss
+\item \textbf{drawRightEK\_Residual(EdmondsKarp a)} \\
+Rechte Ansicht Edmonds-Karp: Restnetzwerk.
+\item \textbf{drawFlowPushRelabel(PushRelabel a)} \\
+Ansicht PushRelabel
+\end{itemize}
+
+\section{Schlussbemerkungen}
+
+Nachdem wir ein Grundgerüst aufgebaut hatten, haben wir zunächst getrennt voneinander die Algorithmen implementiert. Dabei entstanden unterschiedliche Versionen einiger Graph-Klassen, so wurden z.B. Flusswerte oder algorithmusspezifische Daten wie die Höhe in Knoten und Kanten gespeichert. Später haben wir diese Felder in die Algorithmen selbst ausgelagert, so dass die Klassen \texttt{Graph.java} und \texttt{Flow.java} einheitlich bleiben konnten. \\
+Als wir mit der Implementierung fertig waren, mussten wir feststellen, dass noch lange Wartezeiten und teilweise sogar Berechnungsfehler in einigen Situationen auftraten. Es gab auch übersehene Fehler in den Testdaten, wie Kanten mit Gewicht 0, negative Gewichten oder Kanten eines Knotens zu sich selbst (nicht alle davon waren in der Darstellung sichtbar). \\
+Die meiste Zeit haben wir auf die Visualisierung, das Testen und die anschließende Fehlersuche verwendet. 
+Ein optimales Layout für die Graphen konnten wir nicht automatisch erzeugen. Umso wichtiger war deshalb, dass der Benutzer durch Verschieben von Knoten bzw. Kanten selbst das Layout gestalten kann und diese Änderungen auch beibehalten werden. 
+
+
+\begin{thebibliography}{1}
+
+\bibitem{Roe1} Röglin: Skript zur Vorlesung "Algorithmen und Berechnungskomplexität I",\\ WiSe 10/11, 
+http://roeglin.org/teaching/ws2010/AuBI.html
+
+\bibitem{KV} Korte, Vygen: Kombinatorische Optimierung, \\
+Springer-Verlag
+
+\bibitem{JGraphX} JGraphX: GitHub repository, \\
+http://github.com/jgraph/jgraphx 
+\end{thebibliography}
+
+
+\end{document}
